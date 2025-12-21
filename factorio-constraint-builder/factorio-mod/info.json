@@ -1,0 +1,11 @@
+{
+  "name": "factorio-constraint-builder",
+  "version": "0.1.0",
+  "title": "Factorio Constraint Builder",
+  "author": "Your Name",
+  "contact": "",
+  "homepage": "",
+  "description": "External constraint-based factory building system with RCON control",
+  "factorio_version": "1.1",
+  "dependencies": ["base >= 1.1"]
+}
