@@ -1,7 +1,7 @@
 // DSL Parser
 // Parses DSL text into AST
 
-use super::ast::*;
+use super::ast::{Command, Direction, PlaceCommand, Position, QueryCommand, ClearCommand, SplitterPriority};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -53,7 +53,7 @@ impl DslParser {
         
         match command {
             // Entity placement commands
-            cmd if cmd.starts_with("belt-") 
+            cmd if cmd.starts_with("belt-")
                 || cmd.starts_with("inserter-")
                 || cmd.starts_with("assembler-")
                 || cmd.starts_with("power-pole-")
@@ -110,42 +110,60 @@ impl DslParser {
     }
     
     fn parse_place_command(tokens: Vec<&str>) -> Result<Command, ParseError> {
-        if tokens.len() < 4 {
+        if tokens.len() < 3 {
             return Err(ParseError::MissingArgument(
-                "entity placement requires: entity x y direction".to_string()
+                "entity placement requires: entity x y [direction] [options]".to_string()
             ));
         }
-        
+
         let entity_type = tokens[0].to_string();
         let x = Self::parse_number(tokens[1])?;
         let y = Self::parse_number(tokens[2])?;
-        
-        // Direction is required for most entities
-        let direction = if tokens[3].starts_with(':') {
-            Some(Direction::from_keyword(&tokens[3][1..])
-                .ok_or_else(|| ParseError::InvalidDirection(tokens[3].to_string()))?)
+
+        // Direction is optional (parsed if 4th token starts with ':')
+        let (direction, options_start) = if tokens.len() > 3 && tokens[3].starts_with(':') {
+            (Some(Direction::from_keyword(&tokens[3][1..])
+                .ok_or_else(|| ParseError::InvalidDirection(tokens[3].to_string()))?), 4)
         } else {
-            None
+            (None, 3)
         };
-        
-        // Parse optional recipe and modules
+
+        // Parse optional recipe, modules, and splitter settings
         let mut recipe = None;
         let mut modules = Vec::new();
-        
-        for token in tokens.iter().skip(4) {
+        let mut input_priority = None;
+        let mut output_priority = None;
+        let mut filter = None;
+
+        for token in tokens.iter().skip(options_start) {
             if let Some(recipe_name) = token.strip_prefix("recipe:") {
                 recipe = Some(recipe_name.to_string());
             } else if let Some(module_name) = token.strip_prefix("module:") {
                 modules.push(module_name.to_string());
+            } else if let Some(priority) = token.strip_prefix("in-priority:") {
+                input_priority = Some(SplitterPriority::from_keyword(priority)
+                    .ok_or_else(|| ParseError::InvalidSyntax(
+                        format!("Invalid input priority: {} (use left, right, or none)", priority)
+                    ))?);
+            } else if let Some(priority) = token.strip_prefix("out-priority:") {
+                output_priority = Some(SplitterPriority::from_keyword(priority)
+                    .ok_or_else(|| ParseError::InvalidSyntax(
+                        format!("Invalid output priority: {} (use left, right, or none)", priority)
+                    ))?);
+            } else if let Some(filter_item) = token.strip_prefix("filter:") {
+                filter = Some(filter_item.to_string());
             }
         }
-        
+
         Ok(Command::Place(PlaceCommand {
             entity_type,
             position: Position::new(x, y),
             direction,
             recipe,
             modules,
+            input_priority,
+            output_priority,
+            filter,
         }))
     }
     
@@ -288,5 +306,80 @@ mod tests {
     fn test_parse_comment() {
         let cmd = DslParser::parse_line("; This is a comment").unwrap();
         assert!(matches!(cmd, Command::Comment(_)));
+    }
+
+    #[test]
+    fn test_parse_splitter_with_output_priority() {
+        let cmd = DslParser::parse_line("splitter-blue 10 10 :n out-priority:left").unwrap();
+        match cmd {
+            Command::Place(place) => {
+                assert_eq!(place.entity_type, "splitter-blue");
+                assert_eq!(place.output_priority, Some(SplitterPriority::Left));
+                assert_eq!(place.input_priority, None);
+                assert_eq!(place.filter, None);
+            }
+            _ => panic!("Expected Place command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_splitter_with_input_priority() {
+        let cmd = DslParser::parse_line("splitter-red 15 20 :e in-priority:right").unwrap();
+        match cmd {
+            Command::Place(place) => {
+                assert_eq!(place.entity_type, "splitter-red");
+                assert_eq!(place.input_priority, Some(SplitterPriority::Right));
+                assert_eq!(place.output_priority, None);
+            }
+            _ => panic!("Expected Place command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_splitter_with_filter() {
+        let cmd = DslParser::parse_line("splitter-yellow 5 5 :s filter:iron-plate").unwrap();
+        match cmd {
+            Command::Place(place) => {
+                assert_eq!(place.entity_type, "splitter-yellow");
+                assert_eq!(place.filter, Some("iron-plate".to_string()));
+            }
+            _ => panic!("Expected Place command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_splitter_with_all_options() {
+        let cmd = DslParser::parse_line("splitter-blue 25 30 :w in-priority:left out-priority:right filter:copper-plate").unwrap();
+        match cmd {
+            Command::Place(place) => {
+                assert_eq!(place.entity_type, "splitter-blue");
+                assert_eq!(place.input_priority, Some(SplitterPriority::Left));
+                assert_eq!(place.output_priority, Some(SplitterPriority::Right));
+                assert_eq!(place.filter, Some("copper-plate".to_string()));
+            }
+            _ => panic!("Expected Place command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_splitter_priority_none() {
+        let cmd = DslParser::parse_line("splitter-blue 10 10 :n out-priority:none").unwrap();
+        match cmd {
+            Command::Place(place) => {
+                assert_eq!(place.output_priority, Some(SplitterPriority::None));
+            }
+            _ => panic!("Expected Place command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_splitter_priority_balanced() {
+        let cmd = DslParser::parse_line("splitter-blue 10 10 :n in-priority:balanced").unwrap();
+        match cmd {
+            Command::Place(place) => {
+                assert_eq!(place.input_priority, Some(SplitterPriority::None));
+            }
+            _ => panic!("Expected Place command"),
+        }
     }
 }

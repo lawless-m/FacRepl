@@ -55,6 +55,33 @@ impl Direction {
     }
 }
 
+/// Priority setting for splitter input/output
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SplitterPriority {
+    Left,
+    Right,
+    None,
+}
+
+impl SplitterPriority {
+    pub fn from_keyword(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "left" | "l" => Some(SplitterPriority::Left),
+            "right" | "r" => Some(SplitterPriority::Right),
+            "none" | "balanced" => Some(SplitterPriority::None),
+            _ => None,
+        }
+    }
+
+    pub fn to_keyword(&self) -> &'static str {
+        match self {
+            SplitterPriority::Left => "left",
+            SplitterPriority::Right => "right",
+            SplitterPriority::None => "none",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlaceCommand {
     pub entity_type: String,
@@ -62,6 +89,12 @@ pub struct PlaceCommand {
     pub direction: Option<Direction>,
     pub recipe: Option<String>,
     pub modules: Vec<String>,
+    /// Splitter input priority (which input side to prefer)
+    pub input_priority: Option<SplitterPriority>,
+    /// Splitter output priority (which output side to prefer)
+    pub output_priority: Option<SplitterPriority>,
+    /// Splitter filter (item name to route to priority side)
+    pub filter: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

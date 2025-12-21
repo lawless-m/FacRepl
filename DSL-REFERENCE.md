@@ -58,12 +58,32 @@ underground-belt-blue 15 10 :n  ; pairs with above
 
 ### Splitters
 ```
-splitter-yellow <x> <y> <:dir>
-splitter-red <x> <y> <:dir>
-splitter-blue <x> <y> <:dir>
+splitter-yellow <x> <y> <:dir> [in-priority:<left|right|none>] [out-priority:<left|right|none>] [filter:<item>]
+splitter-red <x> <y> <:dir> [in-priority:<left|right|none>] [out-priority:<left|right|none>] [filter:<item>]
+splitter-blue <x> <y> <:dir> [in-priority:<left|right|none>] [out-priority:<left|right|none>] [filter:<item>]
+```
 
-Examples:
+**Options:**
+- `in-priority:` - Input priority. Which input side to pull from first (left, right, or none/balanced)
+- `out-priority:` - Output priority. Which output side to send items to first (left, right, or none/balanced)
+- `filter:` - Item filter. Routes the specified item to the priority output side
+
+**Examples:**
+```
+; Basic splitter - splits items evenly
 splitter-blue 10 10 :n
+
+; Priority output to the left side
+splitter-blue 15 10 :n out-priority:left
+
+; Priority input from right, output to left
+splitter-blue 20 10 :n in-priority:right out-priority:left
+
+; Filter iron plates to the right output
+splitter-blue 25 10 :n out-priority:right filter:iron-plate
+
+; Filter copper plates to left, everything else balanced
+splitter-red 30 10 :e out-priority:left filter:copper-plate
 ```
 
 ### Inserters
@@ -72,11 +92,15 @@ inserter-burner <x> <y> <:dir>
 inserter-basic <x> <y> <:dir>
 inserter-fast <x> <y> <:dir>
 inserter-long <x> <y> <:dir>
+inserter-filter <x> <y> <:dir>
 inserter-stack <x> <y> <:dir>
+inserter-stack-filter <x> <y> <:dir>
 
 Examples:
 inserter-fast 10 10 :e
 inserter-stack 15 15 :w
+inserter-filter 20 20 :n
+inserter-stack-filter 25 25 :s
 ```
 
 ### Assemblers

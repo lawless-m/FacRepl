@@ -85,7 +85,7 @@ impl DslExecutor {
         let direction = place.direction
             .map(|d| d.to_keyword())
             .unwrap_or("north");
-        
+
         let response = self.rcon.place_entity(
             &place.entity_type,
             place.position.x,
@@ -93,10 +93,13 @@ impl DslExecutor {
             direction,
             place.recipe.as_deref(),
             if place.modules.is_empty() { None } else { Some(place.modules) },
+            place.input_priority.map(|p| p.to_keyword()),
+            place.output_priority.map(|p| p.to_keyword()),
+            place.filter.as_deref(),
         ).await?;
-        
+
         if response.success {
-            Ok(format!("Placed {} at ({}, {})", 
+            Ok(format!("Placed {} at ({}, {})",
                 place.entity_type, place.position.x, place.position.y))
         } else {
             Err(ExecutionError::CommandFailed(

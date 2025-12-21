@@ -140,7 +140,28 @@ function fcb.place(params)
             end
         end
     end
-    
+
+    -- Set splitter settings if this is a splitter entity
+    if entity.type == "splitter" then
+        -- Set input priority (which input side to prefer pulling from)
+        if params.input_priority then
+            entity.splitter_input_priority = params.input_priority
+        end
+
+        -- Set output priority (which output side to prefer sending to)
+        if params.output_priority then
+            entity.splitter_output_priority = params.output_priority
+        end
+
+        -- Set filter (item to route to the priority output side)
+        if params.filter then
+            local item_prototype = game.item_prototypes[params.filter]
+            if item_prototype then
+                entity.splitter_filter = item_prototype
+            end
+        end
+    end
+
     return create_response(true, "place", {
         entity = params.entity,
         position = position,
@@ -200,7 +221,16 @@ function fcb.query(params)
             entity_data.modules = modules
         end
     end
-    
+
+    -- Add splitter settings if this is a splitter
+    if entity.type == "splitter" then
+        entity_data.input_priority = entity.splitter_input_priority
+        entity_data.output_priority = entity.splitter_output_priority
+        if entity.splitter_filter then
+            entity_data.filter = entity.splitter_filter.name
+        end
+    end
+
     return create_response(true, "query", {
         position = params.position,
         entity = entity_data

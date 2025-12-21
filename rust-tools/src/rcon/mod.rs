@@ -88,26 +88,42 @@ impl RconBridge {
         direction: &str,
         recipe: Option<&str>,
         modules: Option<Vec<String>>,
+        input_priority: Option<&str>,
+        output_priority: Option<&str>,
+        filter: Option<&str>,
     ) -> Result<RconResponse> {
         let mut params = serde_json::json!({
             "entity": entity,
             "position": {"x": x, "y": y},
             "direction": direction,
         });
-        
+
         if let Some(r) = recipe {
             params["recipe"] = serde_json::json!(r);
         }
-        
+
         if let Some(m) = modules {
             params["modules"] = serde_json::json!(m);
         }
-        
+
+        // Splitter-specific settings
+        if let Some(ip) = input_priority {
+            params["input_priority"] = serde_json::json!(ip);
+        }
+
+        if let Some(op) = output_priority {
+            params["output_priority"] = serde_json::json!(op);
+        }
+
+        if let Some(f) = filter {
+            params["filter"] = serde_json::json!(f);
+        }
+
         let command = format!(
             "/silent-command rcon.print(remote.call('fcb', 'place', {}))",
             params
         );
-        
+
         self.execute_command(&command).await
     }
     
