@@ -1,0 +1,49 @@
+; Example DSL Script: Basic Green Circuit Production
+; This demonstrates the DSL syntax for building a simple factory
+
+; Clear the build area first
+clear 0 0 30 20
+
+; Step 1: Power infrastructure
+; Place medium electric poles in a grid
+power-pole-medium 5 5
+power-pole-medium 15 5
+power-pole-medium 25 5
+
+; Step 2: Copper cable production
+; Input belt for copper plates
+belt-blue 0 10 :e
+belt-blue 1 10 :e
+belt-blue 2 10 :e
+
+; Pick up copper plates from belt
+inserter-fast 3 10 :n
+
+; Assembler for copper cable
+assembler-2 3 11 recipe:copper-cable
+
+; Output copper cable
+inserter-long 3 12 :e
+
+; Step 3: Green circuit production
+; Input belt for iron plates
+belt-blue 0 15 :e
+belt-blue 1 15 :e
+belt-blue 2 15 :e
+
+; Pick up iron plates
+inserter-fast 10 15 :n
+
+; Green circuit assembler
+assembler-2 10 16 recipe:green-circuit
+
+; Pick up copper cable (from step 2)
+inserter-fast 9 16 :w
+
+; Output green circuits
+inserter-fast 10 17 :s
+belt-blue 10 18 :e
+belt-blue 11 18 :e
+
+; Done!
+; The factory is now built and ready to produce green circuits
