@@ -24,6 +24,7 @@ nom = "7"
 
 # REPL
 rustyline = "14"
+dirs = "5"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -38,7 +39,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # CLI
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env"] }
 
 [dev-dependencies]
 assert_cmd = "2"
