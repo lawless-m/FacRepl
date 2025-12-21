@@ -1112,3 +1112,318 @@ clear 0 0 20 20
 - Constraint satisfaction: Classic AI textbooks
 - Factorio ratios: Community calculators and tools
 - Layout algorithms: Graph theory, packing problems
+
+---
+
+## Scryer Prolog CSP Architecture
+
+### Overview
+
+The constraint solver uses [Scryer Prolog](https://github.com/mthom/scryer-prolog) as the backend for constraint satisfaction. Scryer Prolog is a modern ISO Prolog implementation written in Rust, making it an ideal choice for integration with our Rust codebase.
+
+**Why Scryer Prolog?**
+- **Native Rust integration**: Available as a crate (`scryer-prolog`) - can be embedded directly
+- **CLP(Z) built-in**: Constraint Logic Programming over integers is a first-class library
+- **Battle-tested paradigm**: Prolog has been solving constraint problems for decades
+- **Reusable knowledge**: CSP skills transfer to other domains beyond Factorio
+- **Declarative constraints**: Express *what* must be true, not *how* to find it
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Rust (FacRepl)                          │
+├─────────────────────────────────────────────────────────────────┤
+│  ProductionGoal        │  Parse solution  │  DSL Commands       │
+│  (item, throughput)    │  from Prolog     │  (entity placements)│
+│         │              │       ▲          │         │           │
+│         ▼              │       │          │         ▼           │
+│  ┌─────────────────────┴───────┴──────────┴─────────────────┐   │
+│  │              Problem Generator / Solution Parser          │   │
+│  │  - Converts goals to Prolog facts                        │   │
+│  │  - Parses Prolog terms back to Rust structs              │   │
+│  └─────────────────────┬───────┬──────────┬─────────────────┘   │
+│                        │       │          │                     │
+└────────────────────────┼───────┼──────────┼─────────────────────┘
+                         │       │          │
+                         ▼       │          ▲
+┌────────────────────────────────┴──────────────────────────────┐
+│                     Scryer Prolog (embedded)                   │
+├────────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────┐ │
+│  │   clpz       │  │   Facts DB   │  │   Constraint Rules    │ │
+│  │  (integers)  │  │  - entities  │  │  - spatial placement  │ │
+│  │              │  │  - recipes   │  │  - connectivity       │ │
+│  │  X in 0..100 │  │  - sizes     │  │  - throughput         │ │
+│  │  X #< Y      │  │  - speeds    │  │  - power coverage     │ │
+│  └──────────────┘  └──────────────┘  └───────────────────────┘ │
+│                              │                                  │
+│                              ▼                                  │
+│                    ┌─────────────────┐                         │
+│                    │  labeling/1     │                         │
+│                    │  (search for    │                         │
+│                    │   solutions)    │                         │
+│                    └─────────────────┘                         │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### Rust ↔ Scryer Prolog Integration
+
+**Adding the dependency:**
+```toml
+[dependencies]
+scryer-prolog = "0.10"
+```
+
+**Basic usage pattern:**
+```rust
+use scryer_prolog::Machine;
+
+// Create a Prolog machine
+let mut machine = Machine::new();
+
+// Load constraint definitions
+machine.consult_module_string("user", FACTORIO_CONSTRAINTS)?;
+
+// Load problem-specific facts
+let facts = generate_problem_facts(&production_goal);
+machine.consult_module_string("user", &facts)?;
+
+// Run the solver query
+let solutions = machine.run_query("solve(Layout).")?;
+
+// Parse the first solution
+for answer in solutions {
+    let layout = parse_layout_term(&answer)?;
+    return Ok(layout);
+}
+```
+
+**Key Scryer Prolog types:**
+- `Machine` - An instance of Scryer Prolog
+- `MachineBuilder` - Configures machine creation
+- `QueryResolution` - Iterator over query solutions
+- `LeafAnswer` - A single solution binding
+- `Term` - Represents a Prolog term (for parsing results)
+
+### Constraint Model Design
+
+The Prolog constraint model is organized into layers:
+
+#### 1. Entity Database (Facts)
+
+```prolog
+% Entity definitions
+% entity(Name, Category, Width, Height, CraftingSpeed, ModuleSlots)
+entity(assembler_1, assembler, 3, 3, 0.5, 0).
+entity(assembler_2, assembler, 3, 3, 0.75, 2).
+entity(assembler_3, assembler, 3, 3, 1.25, 4).
+entity(belt_yellow, belt, 1, 1, _, _).
+entity(belt_red, belt, 1, 1, _, _).
+entity(belt_blue, belt, 1, 1, _, _).
+entity(inserter_fast, inserter, 1, 1, _, _).
+
+% Recipe definitions
+% recipe(Name, Inputs, Outputs, CraftingTime, Category)
+recipe(green_circuit,
+       [(iron_plate, 1), (copper_cable, 3)],
+       [(green_circuit, 1)],
+       0.5, assembling).
+
+recipe(copper_cable,
+       [(copper_plate, 1)],
+       [(copper_cable, 2)],
+       0.5, assembling).
+```
+
+#### 2. Spatial Constraints (CLP(Z))
+
+```prolog
+:- use_module(library(clpz)).
+
+% Position variables have bounded domains
+position_in_bounds(X, Y, MaxX, MaxY) :-
+    X in 0..MaxX,
+    Y in 0..MaxY.
+
+% No two entities overlap
+no_overlap(X1, Y1, W1, H1, X2, Y2, W2, H2) :-
+    X1 + W1 #=< X2 #\/ X2 + W2 #=< X1 #\/
+    Y1 + H1 #=< Y2 #\/ Y2 + H2 #=< Y1.
+
+% All entities pairwise non-overlapping
+all_no_overlap([]).
+all_no_overlap([_]).
+all_no_overlap([E1|Rest]) :-
+    maplist(no_overlap_with(E1), Rest),
+    all_no_overlap(Rest).
+```
+
+#### 3. Connectivity Constraints
+
+```prolog
+% Inserter can reach between two positions
+inserter_reaches(InsX, InsY, InsDir, FromX, FromY, ToX, ToY) :-
+    % Inserter picks from behind, places in front
+    (InsDir = north ->
+        FromX #= InsX, FromY #= InsY + 1,
+        ToX #= InsX, ToY #= InsY - 1
+    ; InsDir = south ->
+        FromX #= InsX, FromY #= InsY - 1,
+        ToX #= InsX, ToY #= InsY + 1
+    ; InsDir = east ->
+        FromX #= InsX - 1, FromY #= InsY,
+        ToX #= InsX + 1, ToY #= InsY
+    ; InsDir = west ->
+        FromX #= InsX + 1, FromY #= InsY,
+        ToX #= InsX - 1, ToY #= InsY
+    ).
+
+% Belt connects to adjacent belt
+belt_connects(X1, Y1, Dir1, X2, Y2) :-
+    (Dir1 = north -> X2 #= X1, Y2 #= Y1 - 1
+    ; Dir1 = south -> X2 #= X1, Y2 #= Y1 + 1
+    ; Dir1 = east -> X2 #= X1 + 1, Y2 #= Y1
+    ; Dir1 = west -> X2 #= X1 - 1, Y2 #= Y1
+    ).
+```
+
+#### 4. Production Constraints
+
+```prolog
+% Calculate required machines for throughput
+machines_needed(Recipe, TargetPerSec, MachineType, Count) :-
+    recipe(Recipe, _, _, CraftTime, _),
+    entity(MachineType, assembler, _, _, Speed, _),
+    ItemsPerMachine is Speed / CraftTime,
+    Count is ceiling(TargetPerSec / ItemsPerMachine).
+
+% Production chain satisfies throughput
+production_satisfies(Machines, Recipe, TargetPerSec) :-
+    findall(Speed, (
+        member(machine(Type, _, _, Recipe), Machines),
+        entity(Type, assembler, _, _, Speed, _),
+        recipe(Recipe, _, _, CraftTime, _)
+    ), Speeds),
+    sum_list(Speeds, TotalSpeed),
+    recipe(Recipe, _, _, CraftTime, _),
+    TotalOutput is TotalSpeed / CraftTime,
+    TotalOutput >= TargetPerSec.
+```
+
+#### 5. Main Solver
+
+```prolog
+% Main entry point
+solve(Goal, Layout) :-
+    Goal = goal(Item, Throughput),
+
+    % Calculate what we need
+    production_chain(Item, Chain),
+    required_machines(Chain, Throughput, MachineList),
+
+    % Create position variables
+    create_placements(MachineList, Placements),
+
+    % Apply constraints
+    all_positions_bounded(Placements, 100, 100),
+    all_no_overlap(Placements),
+    all_connected(Placements),
+    production_satisfies(Placements, Item, Throughput),
+
+    % Search for solution
+    extract_variables(Placements, Vars),
+    labeling([ff], Vars),  % first-fail heuristic
+
+    Layout = Placements.
+```
+
+### File Organization
+
+```
+rust-tools/src/
+├── solver/
+│   ├── mod.rs              # Solver interface
+│   ├── prolog/
+│   │   ├── mod.rs          # Prolog integration
+│   │   ├── bridge.rs       # Rust ↔ Prolog communication
+│   │   ├── facts.rs        # Generate Prolog facts from Rust
+│   │   └── parser.rs       # Parse Prolog terms to Rust
+│   └── constraints/        # Prolog source files
+│       ├── entities.pl     # Entity database
+│       ├── recipes.pl      # Recipe database
+│       ├── spatial.pl      # Spatial constraints
+│       ├── connectivity.pl # Connection constraints
+│       ├── production.pl   # Throughput constraints
+│       └── solver.pl       # Main solver logic
+
+prolog/                     # Standalone Prolog files for testing
+├── factorio.pl             # Complete constraint model
+├── test_green_circuit.pl   # Test case: green circuits
+└── test_simple.pl          # Minimal test case
+```
+
+### Development Workflow
+
+1. **Develop constraints in Prolog first**
+   - Use Scryer Prolog CLI to test interactively
+   - Iterate on constraint model without recompiling Rust
+
+2. **Integrate with Rust**
+   - Embed Prolog source files using `include_str!`
+   - Generate problem-specific facts from Rust structs
+   - Parse solutions back to Rust types
+
+3. **Test end-to-end**
+   - Run solver from Rust
+   - Generate DSL commands
+   - Execute in Factorio
+
+### Example: Solving Green Circuits
+
+**Input (Rust):**
+```rust
+let goal = ProductionGoal {
+    item: "green_circuit".to_string(),
+    throughput: Throughput::ItemsPerSecond(45.0), // 1 blue belt
+};
+```
+
+**Generated Prolog query:**
+```prolog
+?- solve(goal(green_circuit, 45.0), Layout).
+```
+
+**Prolog solution:**
+```prolog
+Layout = [
+    machine(assembler_2, 5, 5, green_circuit),
+    machine(assembler_2, 5, 10, green_circuit),
+    machine(assembler_2, 5, 15, copper_cable),
+    inserter(inserter_fast, 4, 5, east),
+    inserter(inserter_fast, 6, 5, east),
+    belt(belt_blue, 3, 5, east),
+    belt(belt_blue, 7, 5, east),
+    ...
+].
+```
+
+**Generated DSL:**
+```
+assembler-2 5 5 recipe:green-circuit
+assembler-2 5 10 recipe:green-circuit
+assembler-2 5 15 recipe:copper-cable
+inserter-fast 4 5 :e
+inserter-fast 6 5 :e
+belt-blue 3 5 :e
+belt-blue 7 5 :e
+```
+
+### Benefits of This Approach
+
+1. **Declarative**: Express constraints naturally - "inserters must reach", "no overlap"
+2. **Complete search**: Prolog explores all possibilities, guaranteed to find solution if one exists
+3. **Backtracking built-in**: No manual search tree management
+4. **Reusable**: Same approach works for other CSP domains
+5. **Debuggable**: Can test Prolog constraints independently
+6. **Extensible**: Add new constraints without rewriting solver
