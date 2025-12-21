@@ -84,16 +84,20 @@ impl EntityType {
             EntityInfo::new("express-splitter", EntityCategory::Splitter, (2, 1)));
         
         // Inserters
-        entities.insert("inserter-burner".to_string(), 
+        entities.insert("inserter-burner".to_string(),
             EntityInfo::new("burner-inserter", EntityCategory::Inserter, (1, 1)));
-        entities.insert("inserter-basic".to_string(), 
+        entities.insert("inserter-basic".to_string(),
             EntityInfo::new("inserter", EntityCategory::Inserter, (1, 1)));
-        entities.insert("inserter-fast".to_string(), 
+        entities.insert("inserter-fast".to_string(),
             EntityInfo::new("fast-inserter", EntityCategory::Inserter, (1, 1)));
-        entities.insert("inserter-long".to_string(), 
+        entities.insert("inserter-long".to_string(),
             EntityInfo::new("long-handed-inserter", EntityCategory::Inserter, (1, 1)));
-        entities.insert("inserter-stack".to_string(), 
+        entities.insert("inserter-filter".to_string(),
+            EntityInfo::new("filter-inserter", EntityCategory::Inserter, (1, 1)));
+        entities.insert("inserter-stack".to_string(),
             EntityInfo::new("stack-inserter", EntityCategory::Inserter, (1, 1)));
+        entities.insert("inserter-stack-filter".to_string(),
+            EntityInfo::new("stack-filter-inserter", EntityCategory::Inserter, (1, 1)));
         
         // Assemblers
         entities.insert("assembler-1".to_string(), 
