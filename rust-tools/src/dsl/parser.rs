@@ -267,7 +267,9 @@ impl DslParser {
         Ok(Command::LoadState { name })
     }
     
-    fn parse_number(s: &str) -> Result<i32, ParseError> {
+    fn parse_number(s: &str) -> Result<f64, ParseError> {
+        // Remove trailing comma if present (for copy-paste friendliness)
+        let s = s.trim_end_matches(',');
         s.parse().map_err(|_| ParseError::InvalidNumber(s.to_string()))
     }
 }

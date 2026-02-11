@@ -160,9 +160,9 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn handle_repl_command(line: &str, _executor: &mut DslExecutor) -> Result<bool> {
+async fn handle_repl_command(line: &str, executor: &mut DslExecutor) -> Result<bool> {
     let parts: Vec<&str> = line.split_whitespace().collect();
-    
+
     match parts[0] {
         ":help" | ":h" => {
             print_help();
@@ -193,6 +193,13 @@ async fn handle_repl_command(line: &str, _executor: &mut DslExecutor) -> Result<
             println!("  Assemblers: assembler-1/2/3");
             println!("  Power: power-pole-small/medium/big");
             println!("  Fluids: pipe, pump, storage-tank");
+            Ok(false)
+        }
+        ":player" | ":pos" => {
+            match executor.get_player_position().await {
+                Ok(pos) => println!("{}", pos),
+                Err(e) => eprintln!("Error getting player position: {}", e),
+            }
             Ok(false)
         }
         _ => {

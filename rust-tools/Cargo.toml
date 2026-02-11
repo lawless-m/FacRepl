@@ -16,7 +16,7 @@ path = "src/bin/solver.rs"
 
 [dependencies]
 # RCON client
-rcon = "0.6"
+rcon = { version = "0.6", features = ["rt-tokio"] }
 tokio = { version = "1", features = ["full"] }
 
 # DSL parsing

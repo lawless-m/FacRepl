@@ -2,6 +2,7 @@
 // Executes parsed DSL commands via RCON
 
 use super::ast::*;
+use crate::entities::types::EntityType;
 use crate::rcon::RconBridge;
 use anyhow::Result;
 use std::collections::HashMap;
@@ -36,6 +37,7 @@ impl Default for ExecutionState {
 pub struct DslExecutor {
     rcon: RconBridge,
     state: ExecutionState,
+    entity_types: EntityType,
 }
 
 impl DslExecutor {
@@ -43,6 +45,7 @@ impl DslExecutor {
         Self {
             rcon,
             state: ExecutionState::default(),
+            entity_types: EntityType::new(),
         }
     }
     
@@ -86,8 +89,12 @@ impl DslExecutor {
             .map(|d| d.to_keyword())
             .unwrap_or("north");
 
+        // Translate DSL entity name to Factorio entity name
+        let factorio_entity = self.entity_types.factorio_name(&place.entity_type)
+            .unwrap_or(&place.entity_type);
+
         let response = self.rcon.place_entity(
-            &place.entity_type,
+            factorio_entity,
             place.position.x,
             place.position.y,
             direction,
@@ -99,8 +106,15 @@ impl DslExecutor {
         ).await?;
 
         if response.success {
-            Ok(format!("Placed {} at ({}, {})",
-                place.entity_type, place.position.x, place.position.y))
+            // Get actual position from response
+            let actual_pos = response.data.get("position");
+            if let Some(pos) = actual_pos {
+                let x = pos.get("x").and_then(|v| v.as_f64()).unwrap_or(place.position.x as f64);
+                let y = pos.get("y").and_then(|v| v.as_f64()).unwrap_or(place.position.y as f64);
+                Ok(format!("Placed {} at {:.1} {:.1}", place.entity_type, x, y))
+            } else {
+                Ok(format!("Placed {} at {} {}", place.entity_type, place.position.x, place.position.y))
+            }
         } else {
             Err(ExecutionError::CommandFailed(
                 response.data.get("message")
@@ -118,7 +132,9 @@ impl DslExecutor {
                 Ok(format!("{:#}", response.data))
             }
             QueryCommand::CanPlace { entity_type, position } => {
-                let response = self.rcon.can_place(&entity_type, position.x, position.y).await?;
+                let factorio_entity = self.entity_types.factorio_name(&entity_type)
+                    .unwrap_or(&entity_type);
+                let response = self.rcon.can_place(factorio_entity, position.x, position.y).await?;
                 Ok(format!("{:#}", response.data))
             }
             QueryCommand::ListArea { x1, y1, x2, y2 } => {
@@ -173,9 +189,22 @@ impl DslExecutor {
                 format!("State '{}' not found", name)
             ))?
             .clone();
-        
+
         // TODO: Actually restore state by clearing and replaying
         self.state.history = saved;
         Ok(format!("Loaded state: {}", name))
+    }
+
+    pub async fn get_player_position(&mut self) -> Result<String> {
+        let response = self.rcon.execute_raw("/silent-command rcon.print(remote.call('fcb', 'player_pos', {}))").await?;
+        let parsed: serde_json::Value = serde_json::from_str(&response)?;
+
+        if let Some(pos) = parsed.get("position") {
+            let x = pos.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let y = pos.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            Ok(format!("Player at ({:.1}, {:.1})", x, y))
+        } else {
+            Ok(response)
+        }
     }
 }

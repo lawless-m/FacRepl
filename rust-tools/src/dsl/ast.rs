@@ -2,14 +2,14 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Position {
-    pub x: i32,
-    pub y: i32,
+    pub x: f64,
+    pub y: f64,
 }
 
 impl Position {
-    pub fn new(x: i32, y: i32) -> Self {
+    pub fn new(x: f64, y: f64) -> Self {
         Self { x, y }
     }
 }
@@ -82,7 +82,7 @@ impl SplitterPriority {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlaceCommand {
     pub entity_type: String,
     pub position: Position,
@@ -97,20 +97,20 @@ pub struct PlaceCommand {
     pub filter: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum QueryCommand {
     WhatAt(Position),
     CanPlace { entity_type: String, position: Position },
-    ListArea { x1: i32, y1: i32, x2: i32, y2: i32 },
+    ListArea { x1: f64, y1: f64, x2: f64, y2: f64 },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ClearCommand {
-    ClearArea { x1: i32, y1: i32, x2: i32, y2: i32 },
-    ClearEntity { entity_type: String, x1: i32, y1: i32, x2: i32, y2: i32 },
+    ClearArea { x1: f64, y1: f64, x2: f64, y2: f64 },
+    ClearEntity { entity_type: String, x1: f64, y1: f64, x2: f64, y2: f64 },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Command {
     Place(PlaceCommand),
     Query(QueryCommand),
