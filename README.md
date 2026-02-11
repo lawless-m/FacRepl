@@ -123,7 +123,9 @@ fcb> :load examples/green-circuits.fcb
 
 ## Constraint Solver
 
-The solver uses Scryer Prolog with CLP(Z) (Constraint Logic Programming over integers) to generate factory layouts from production goals.
+**Status: Experimental / Work in Progress** - The Rust-to-Prolog integration and the constraint model itself are still under active development. The solver can be invoked but does not yet reliably produce valid, placeable layouts.
+
+The goal is to use Scryer Prolog with CLP(Z) (Constraint Logic Programming over integers) to generate factory layouts from production goals.
 
 ```bash
 ./target/release/fcb-solver --item green-circuit --throughput 45 --prolog-path /path/to/scryer-prolog
@@ -135,7 +137,7 @@ The Prolog model (`prolog/factorio.pl`) encodes:
 - Throughput calculations and machine count requirements
 - Belt connectivity and inserter reach constraints
 
-Solutions are output as DSL scripts that can be loaded into the REPL.
+Solutions are intended to be output as DSL scripts that can be loaded into the REPL.
 
 ## Project Structure
 
@@ -163,10 +165,10 @@ Solutions are output as DSL scripts that can be loaded into the REPL.
 - Interactive REPL with history and script loading
 - Entity placement, queries, and area operations
 - Splitter priority settings and item filters
-- Prolog-based constraint solver (basic integration)
 - Floating-point coordinates for sub-tile precision
 
 **In Progress:**
+- Prolog-based constraint solver (Rust/Prolog bridge exists but solver doesn't yet produce reliable layouts)
 - Advanced solver strategies and layout optimization
 - Blueprint generation support
 
