@@ -237,15 +237,15 @@ items_per_second(Recipe, MachineType, ItemsPerSec) :-
     entity(MachineType, _, _, _, Speed, _),
     member((_, OutputCount), Outputs),
     % ItemsPerSec = (OutputCount * Speed * 100) / CraftTime
-    ItemsPerSec is (OutputCount * Speed * 100) div CraftTime.
+    ItemsPerSec #= (OutputCount * Speed * 100) // CraftTime.
 
 %% Machines needed for target throughput
 %% machines_needed(Recipe, MachineType, TargetPerSec, Count)
 %% TargetPerSec is items/sec * 100
 machines_needed(Recipe, MachineType, TargetPerSec, Count) :-
     items_per_second(Recipe, MachineType, PerMachine),
-    PerMachine > 0,
-    Count is (TargetPerSec + PerMachine - 1) div PerMachine.  % ceiling division
+    PerMachine #> 0,
+    Count #= (TargetPerSec + PerMachine - 1) // PerMachine.  % ceiling division
 
 %% =============================================================================
 %% Production Chain Analysis
@@ -570,10 +570,10 @@ build_path(X1, Y1, X2, Y2, Length, [belt(X1, Y1, Dir)|Rest]) :-
     build_path(NextX, NextY, X2, Y2, Length1, Rest).
 
 %% Calculate next position given current position and direction
-next_position(X, Y, 0, X, Y1) :- Y1 is Y - 1.  % north
-next_position(X, Y, 1, X1, Y) :- X1 is X + 1.  % east
-next_position(X, Y, 2, X, Y1) :- Y1 is Y + 1.  % south
-next_position(X, Y, 3, X1, Y) :- X1 is X - 1.  % west
+next_position(X, Y, 0, X, Y1) :- Y1 #= Y - 1.  % north
+next_position(X, Y, 1, X1, Y) :- X1 #= X + 1.  % east
+next_position(X, Y, 2, X, Y1) :- Y1 #= Y + 1.  % south
+next_position(X, Y, 3, X1, Y) :- X1 #= X - 1.  % west
 
 %% Build path with constrained start and end directions - CLP(Z) VERSION
 %% Start at (X1,Y1) facing Dir1, end at (X2,Y2) facing Dir2
@@ -706,10 +706,10 @@ build_path_avoiding(X1, Y1, X2, Y2, AvoidX, AvoidY, Length, [belt(X1, Y1, Dir)|R
     ).
 
 %% Calculate the position that would reach target with given direction
-reverse_position(X, Y, 0, X, Y1) :- Y1 is Y + 1.  % north: came from south
-reverse_position(X, Y, 1, X1, Y) :- X1 is X - 1.  % east: came from west
-reverse_position(X, Y, 2, X, Y1) :- Y1 is Y - 1.  % south: came from north
-reverse_position(X, Y, 3, X1, Y) :- X1 is X + 1.  % west: came from east
+reverse_position(X, Y, 0, X, Y1) :- Y1 #= Y + 1.  % north: came from south
+reverse_position(X, Y, 1, X1, Y) :- X1 #= X - 1.  % east: came from west
+reverse_position(X, Y, 2, X, Y1) :- Y1 #= Y - 1.  % south: came from north
+reverse_position(X, Y, 3, X1, Y) :- X1 #= X + 1.  % west: came from east
 
 %% Find direction needed to reach target from source
 direction_to_reach(X1, Y1, X2, Y2, Dir) :-
