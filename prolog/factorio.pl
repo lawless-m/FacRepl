@@ -9,6 +9,7 @@
 
 :- use_module(library(clpz)).
 :- use_module(library(lists)).
+:- use_module(library(between)).
 :- use_module(library(dcgs)).
 :- use_module(library(format)).
 
@@ -282,7 +283,7 @@ production_chain(Item, [Item|RestChain]) :-
 
 %% Generate N placements of a machine type
 generate_machine_placements(_, 0, []) :- !.
-generate_machine_placements(MachineType, N, [placement(MachineType, X, Y, recipe(Recipe))|Rest]) :-
+generate_machine_placements(MachineType, N, [placement(MachineType, _X, _Y, recipe(_Recipe))|Rest]) :-
     N > 0,
     N1 is N - 1,
     generate_machine_placements(MachineType, N1, Rest).
@@ -435,12 +436,12 @@ constrain_perimeter_belts([], _).
 constrain_perimeter_belts([belt(X, Y, Dir)|Rest], N) :-
     N1 is N - 1,
     % Position must be on perimeter
-    X #>= 0, X #=< N1,
-    Y #>= 0, Y #=< N1,
+    X in 0..N1,
+    Y in 0..N1,
     (X #= 0 #\/ X #= N1 #\/ Y #= 0 #\/ Y #= N1),
 
     % Direction is 0=north, 1=east, 2=south, 3=west
-    Dir #>= 0, Dir #=< 3,
+    Dir in 0..3,
 
     constrain_perimeter_belts(Rest, N).
 
@@ -587,7 +588,7 @@ build_path_directed(X1, Y1, Dir1, X2, Y2, Dir2, Length, Path) :-
 
     % Create path structure
     length(Path, Length),
-    Path = [belt(X1, Y1, Dir1)|Middle],
+    Path = [belt(X1, Y1, Dir1)|_],
 
     % Constrain all belt domains
     constrain_all_belts_in_bounds(Path, MinX, MaxX, MinY, MaxY),
@@ -641,15 +642,6 @@ constrain_belt_domains_bounded([belt(X, Y, Dir)|Rest], MinX, MaxX, MinY, MaxY) :
     Dir in 0..3,  % north=0, east=1, south=2, west=3
     constrain_belt_domains_bounded(Rest, MinX, MaxX, MinY, MaxY).
 
-%% Constrain a path of belts
-constrain_belt_path(Path) :-
-    % All positions must be distinct
-    constrain_positions_distinct(Path),
-    % Path must be continuous
-    constrain_path_continuous(Path),
-    % All positions and directions must be in valid ranges
-    constrain_belt_domains(Path).
-
 %% Constrain belt domains (positions and directions)
 constrain_belt_domains([]).
 constrain_belt_domains([belt(X, Y, Dir)|Rest]) :-
@@ -676,15 +668,6 @@ constrain_path_continuous([_]).
 constrain_path_continuous([B1, B2|Rest]) :-
     constrain_belt_connection(B1, B2),
     constrain_path_continuous([B2|Rest]).
-
-%% Constrain that B1 outputs to B2's position
-constrain_belt_connection(belt(X1, Y1, Dir1), belt(X2, Y2, _Dir2)) :-
-    % B1's output position must equal B2's position
-    % next_position(X1, Y1, Dir1) = (X2, Y2)
-    (Dir1 #= 0 #==> (X2 #= X1 #/\ Y2 #= Y1 - 1)),  % north
-    (Dir1 #= 1 #==> (X2 #= X1 + 1 #/\ Y2 #= Y1)),  % east
-    (Dir1 #= 2 #==> (X2 #= X1 #/\ Y2 #= Y1 + 1)),  % south
-    (Dir1 #= 3 #==> (X2 #= X1 - 1 #/\ Y2 #= Y1)).  % west
 
 %% Label belt variables
 label_belt_path(Path) :-
@@ -777,25 +760,6 @@ generate_belt_grid(Width, Height, StartX, StartY, Belts) :-
         Belts
     ).
 
-%% Helper: between/3 generates integers in range
-between(Low, High, Low) :- Low =< High.
-between(Low, High, X) :-
-    Low < High,
-    Low1 is Low + 1,
-    between(Low1, High, X).
-
-%% Helper: last/2 gets last element of list
-last([X], X) :- !.
-last([_|Rest], X) :- last(Rest, X).
-
-%% Helper: member/2 - element is member of list
-member(X, [X|_]).
-member(X, [_|Rest]) :- member(X, Rest).
-
-%% Helper: append/3 - concatenate lists
-append([], L, L).
-append([H|T], L, [H|R]) :- append(T, L, R).
-
 %% =============================================================================
 %% Belt Balancer Solver
 %% =============================================================================
@@ -841,8 +805,6 @@ generate_output_belts(N, StartX, Belts) :-
 %% Generate splitter network for balancing
 %% For a simple N-M balancer, create a grid of splitters
 generate_balancer_splitters(InputCount, OutputCount, StartX, Splitters) :-
-    % Calculate how many splitter stages we need
-    max(InputCount, OutputCount, MaxLanes),
     SplitterX is StartX + 3,
 
     % For 5-6 balancer, use a simple two-stage design
@@ -872,10 +834,6 @@ generate_5_6_balancer(X, Splitters) :-
     Splitter5 = placement(splitter_blue, X3, 8, direction(east)),
 
     Splitters = [Splitter1, Splitter2, Splitter3, Splitter4, Splitter5].
-
-%% Helper: max of two numbers
-max(A, B, A) :- A >= B, !.
-max(_, B, B).
 
 %% =============================================================================
 %% Main Solver Entry Point
